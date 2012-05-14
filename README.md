@@ -33,8 +33,7 @@ Examples
     mq.on('messages', function() {
       var n;
       while ((n = this.shift(readbuf)) !== false) {
-        console.log('Received message (' + n + ' bytes): '
-                    + readbuf.toString('utf8', 0, n));
+        console.log('Received message (' + n + ' bytes): ' + readbuf.toString('utf8', 0, n));
         console.log('Messages left: ' + this.curmsgs);
       }
       mq.unlink();
