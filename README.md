@@ -36,8 +36,8 @@ Examples
         console.log('Received message (' + n + ' bytes): ' + readbuf.toString('utf8', 0, n));
         console.log('Messages left: ' + this.curmsgs);
       }
-      mq.unlink();
-      mq.close();
+      this.unlink();
+      this.close();
     });
     mq.open({ name: '/pmqtest' });
     readbuf = new Buffer(mq.msgsize);
