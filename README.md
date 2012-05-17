@@ -1,4 +1,3 @@
-
 Description
 ===========
 
@@ -80,7 +79,7 @@ PosixMQ instance methods
 
     * <_string_>name - The name of the queue to open, it **MUST** start with a '/'.
 
-    * <_boolean_>create - Set to true to create the queue if it doesn't already exist. The queue will be owned by the user and group of the current process.
+    * <_boolean_>create - Set to `true` to create the queue if it doesn't already exist (defaults to `false`). The queue will be owned by the user and group of the current process.
 
     * <_boolean_>exclusive - If creating a queue, set to `true` if you want to ensure a queue with the given name does not already exist.
 
