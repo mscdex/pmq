@@ -94,7 +94,7 @@ Methods
 
     * name - _string_ - The name of the queue to open, it **MUST** start with a '/'.
 
-    * create - _boolean_ - Set to true to create the queue if it doesn't already exist. The queue will be owned by the user and group of the current process.
+    * create - _boolean_ - Set to `true` to create the queue if it doesn't already exist (default is `false`). The queue will be owned by the user and group of the current process.
 
     * exclusive - _boolean_ - If creating a queue, set to true if you want to ensure a queue with the given name does not already exist.
 
