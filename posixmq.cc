@@ -20,8 +20,6 @@ using namespace v8;
 
 static Persistent<FunctionTemplate> constructor;
 static Persistent<String> emit_symbol;
-static Persistent<String> read_symbol;
-static Persistent<String> write_symbol;
 static Persistent<Value> read_emit_argv[1];
 static Persistent<Value> write_emit_argv[1];
 static const mqd_t MQDES_INVALID = (mqd_t)-1;
@@ -30,24 +28,20 @@ class PosixMQ : public ObjectWrap {
   public:
     mqd_t mqdes;
     struct mq_attr mqattrs;
-    ev_io mqpollhandle;
+    uv_poll_t* mqpollhandle;
     char* mqname;
     Persistent<Function> Emit;
     bool canread;
     bool canwrite;
 
-    PosixMQ() {
-      mqdes = MQDES_INVALID;
-      mqname = NULL;
-      canread = false;
-      canwrite = false;
-    }
+    PosixMQ() : mqpollhandle(NULL), mqdes(MQDES_INVALID), mqname(NULL),
+                canread(false), canwrite(false);
 
     ~PosixMQ() {
       if (mqdes != MQDES_INVALID) {
-        ev_io_stop(EV_DEFAULT_ &mqpollhandle);
-        mq_close(mqdes);
-        mqdes = MQDES_INVALID;
+        close();
+        delete mqpollhandle;
+        mqpollhandle = NULL;
       }
       if (mqname) {
         free(mqname);
@@ -56,6 +50,17 @@ class PosixMQ : public ObjectWrap {
       Emit.Dispose();
       Emit.Clear();
     }
+
+    int close() {
+      int r;
+      uv_poll_stop(mqpollhandle);
+      uv_close((uv_handle_t *)mqpollhandle, on_close);
+      r = mq_close(mqdes);
+      mqdes = MQDES_INVALID;
+      return r;
+    }
+
+    static void on_close (uv_handle_t *handle) {}
 
     static Handle<Value> New(const Arguments& args) {
       HandleScope scope;
@@ -136,11 +141,8 @@ class PosixMQ : public ObjectWrap {
           obj->mqattrs.mq_msgsize = 8192;
       }
 
-      if (obj->mqdes != MQDES_INVALID) {
-        ev_io_stop(EV_DEFAULT_ &(obj->mqpollhandle));
-        mq_close(obj->mqdes);
-        obj->mqdes = MQDES_INVALID;
-      }
+      if (obj->mqdes != MQDES_INVALID)
+        obj->close();
 
       if (doCreate)
         obj->mqdes = mq_open(name, flags, mode, &(obj->mqattrs));
@@ -166,41 +168,40 @@ class PosixMQ : public ObjectWrap {
       obj->canread = !(obj->mqattrs.mq_curmsgs > 0);
       obj->canwrite = !(obj->mqattrs.mq_curmsgs < obj->mqattrs.mq_maxmsg);
 
-      ev_init(&(obj->mqpollhandle), poll_cb);
-      obj->mqpollhandle.data = obj;
-      ev_io_set(&(obj->mqpollhandle), obj->mqdes, EV_READ | EV_WRITE);
-      ev_io_start(EV_DEFAULT_ &(obj->mqpollhandle));
+      if (!obj->mqpollhandle)
+        obj->mqpollhandle = new uv_poll_t;
+      obj->mqpollhandle->data = obj;
+      uv_poll_init(uv_default_loop(), obj->mqpollhandle, MQDES_TO_FD(obj->mqdes));
+      uv_poll_start(obj->mqpollhandle, UV_READABLE | UV_WRITABLE, poll_cb);
 
       return Undefined();
     }
 
-    static void poll_cb(EV_P_ ev_io *handle, int revents) {
+    static void poll_cb(uv_poll_t *handle, int status, int events) {
       HandleScope scope;
-
-      if (revents & EV_ERROR)
-        return;
+      assert(status == 0);
 
       PosixMQ* obj = (PosixMQ*)handle->data;
 
       mq_getattr(obj->mqdes, &(obj->mqattrs));
 
-      if ((revents & EV_READ) && !obj->canread) {
+      if ((events & UV_READABLE) && !obj->canread) {
         obj->canread = true;
 
         TryCatch try_catch;
         obj->Emit->Call(obj->handle_, 1, read_emit_argv);
         if (try_catch.HasCaught())
           FatalException(try_catch);
-      } else if (!(revents & EV_READ))
+      } else if (!(events & UV_READABLE))
         obj->canread = false;
 
-      if ((revents & EV_WRITE) && !obj->canwrite) {
+      if ((events & UV_WRITABLE) && !obj->canwrite) {
         obj->canwrite = true;
         TryCatch try_catch;
         obj->Emit->Call(obj->handle_, 1, write_emit_argv);
         if (try_catch.HasCaught())
           FatalException(try_catch);
-      } else if (!(revents & EV_WRITE))
+      } else if (!(events & UV_WRITABLE))
         obj->canwrite = false;
     }
 
@@ -213,14 +214,12 @@ class PosixMQ : public ObjectWrap {
             String::New("Queue already closed")));
       }
 
-      ev_io_stop(EV_DEFAULT_ &(obj->mqpollhandle));
+      int r = obj->close();
 
-      if (mq_close(obj->mqdes) == -1) {
+      if (r == -1) {
         return ThrowException(Exception::Error(
             String::New(uv_strerror(uv_last_error(uv_default_loop())))));
       }
-
-      obj->mqdes = MQDES_INVALID;
 
       return Undefined();
     }
@@ -382,10 +381,8 @@ class PosixMQ : public ObjectWrap {
       constructor->PrototypeTemplate()->SetAccessor(String::New("isFull"),
                                                     IsfullGetter);
       emit_symbol = NODE_PSYMBOL("emit");
-      read_symbol = NODE_PSYMBOL("messages");
-      write_symbol = NODE_PSYMBOL("drain");
-      read_emit_argv[0] = read_symbol;
-      write_emit_argv[0] = write_symbol;
+      read_emit_argv[0] = NODE_PSYMBOL("messages");
+      write_emit_argv[0] = NODE_PSYMBOL("drain");
       target->Set(name, constructor->GetFunction());
     }
 };
