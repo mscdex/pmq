@@ -3,7 +3,7 @@
     {
       'target_name': 'posixmq',
       'sources': [
-        'posixmq.cc',
+        'src/posixmq.cc',
       ],
       'cflags': [ '-O3' ],
       'ldflags': [ '-lrt' ],
