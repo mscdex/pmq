@@ -1,9 +1,9 @@
 { "name": "pmq",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": "Brian White <mscdex@mscdex.net>",
-  "description": "A node.js addon for using POSIX message queues",
-  "main": "./index",
-  "engines": { "node" : ">=0.6.0" },
+  "description": "A node.js binding for using POSIX message queues",
+  "main": "./lib/index",
+  "engines": { "node" : ">=0.8.0" },
   "keywords": [ "mq", "messages", "queues", "linux", "freebsd", "mqueue" ],
   "licenses": [ { "type": "MIT", "url": "http://github.com/mscdex/pmq/raw/master/LICENSE" } ],
   "repository" : { "type": "git", "url": "http://github.com/mscdex/pmq.git" }
