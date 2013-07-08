@@ -35,7 +35,7 @@ class PosixMQ : public ObjectWrap {
     bool canwrite;
 
     PosixMQ() : mqpollhandle(NULL), mqdes(MQDES_INVALID), mqname(NULL),
-                canread(false), canwrite(false);
+                canread(false), canwrite(false) {};
 
     ~PosixMQ() {
       if (mqdes != MQDES_INVALID) {
