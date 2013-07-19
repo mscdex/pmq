@@ -39,11 +39,7 @@ class PosixMQ : public ObjectWrap {
                 canread(false), canwrite(false), eventmask(0) {};
 
     ~PosixMQ() {
-      if (mqdes != MQDES_INVALID) {
-        close();
-        delete mqpollhandle;
-        mqpollhandle = NULL;
-      }
+      close();
       if (mqname) {
         free(mqname);
         mqname = NULL;
@@ -53,15 +49,21 @@ class PosixMQ : public ObjectWrap {
     }
 
     int close() {
-      int r;
-      uv_poll_stop(mqpollhandle);
-      uv_close((uv_handle_t *)mqpollhandle, on_close);
-      r = mq_close(mqdes);
-      mqdes = MQDES_INVALID;
+      int r = 0;
+      if (mqdes != MQDES_INVALID) {
+        mqdes = MQDES_INVALID;
+        uv_poll_stop(mqpollhandle);
+        uv_close((uv_handle_t *)mqpollhandle, on_close);
+        r = mq_close(mqdes);
+      }
       return r;
     }
 
-    static void on_close (uv_handle_t *handle) {}
+    static void on_close (uv_handle_t *handle) {
+      PosixMQ* obj = (PosixMQ*)handle->data;
+      delete obj->mqpollhandle;
+      obj->mqpollhandle = NULL;
+    }
 
     static Handle<Value> New(const Arguments& args) {
       HandleScope scope;
