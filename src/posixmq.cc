@@ -33,9 +33,10 @@ class PosixMQ : public ObjectWrap {
     Persistent<Function> Emit;
     bool canread;
     bool canwrite;
+    int eventmask;
 
     PosixMQ() : mqpollhandle(NULL), mqdes(MQDES_INVALID), mqname(NULL),
-                canread(false), canwrite(false) {};
+                canread(false), canwrite(false), eventmask(0) {};
 
     ~PosixMQ() {
       if (mqdes != MQDES_INVALID) {
@@ -171,8 +172,9 @@ class PosixMQ : public ObjectWrap {
       if (!obj->mqpollhandle)
         obj->mqpollhandle = new uv_poll_t;
       obj->mqpollhandle->data = obj;
+      obj->eventmask = UV_READABLE | UV_WRITABLE;
       uv_poll_init(uv_default_loop(), obj->mqpollhandle, MQDES_TO_FD(obj->mqdes));
-      uv_poll_start(obj->mqpollhandle, UV_READABLE | UV_WRITABLE, poll_cb);
+      uv_poll_start(obj->mqpollhandle, obj->eventmask, poll_cb);
 
       return Undefined();
     }
@@ -183,26 +185,36 @@ class PosixMQ : public ObjectWrap {
 
       PosixMQ* obj = (PosixMQ*)handle->data;
 
-      mq_getattr(obj->mqdes, &(obj->mqattrs));
+      //mq_getattr(obj->mqdes, &(obj->mqattrs));
 
       if ((events & UV_READABLE) && !obj->canread) {
+        obj->eventmask &= ~UV_READABLE;
         obj->canread = true;
 
         TryCatch try_catch;
         obj->Emit->Call(obj->handle_, 1, read_emit_argv);
         if (try_catch.HasCaught())
           FatalException(try_catch);
-      } else if (!(events & UV_READABLE))
+      } else if (!(events & UV_READABLE)) {
+        obj->eventmask |= UV_READABLE;
         obj->canread = false;
+      }
 
       if ((events & UV_WRITABLE) && !obj->canwrite) {
+        obj->eventmask &= ~UV_WRITABLE;
         obj->canwrite = true;
+
         TryCatch try_catch;
         obj->Emit->Call(obj->handle_, 1, write_emit_argv);
         if (try_catch.HasCaught())
           FatalException(try_catch);
-      } else if (!(events & UV_WRITABLE))
+      } else if (!(events & UV_WRITABLE)) {
+        obj->eventmask |= UV_WRITABLE;
         obj->canwrite = false;
+      }
+
+      if (obj->mqdes != MQDES_INVALID)
+        uv_poll_start(obj->mqpollhandle, obj->eventmask, poll_cb);
     }
 
     static Handle<Value> Close(const Arguments& args) {
