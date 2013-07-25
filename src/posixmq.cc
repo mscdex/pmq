@@ -51,10 +51,10 @@ class PosixMQ : public ObjectWrap {
     int close() {
       int r = 0;
       if (mqdes != MQDES_INVALID) {
-        r = mq_close(mqdes);
-        mqdes = MQDES_INVALID;
         uv_poll_stop(mqpollhandle);
         uv_close((uv_handle_t *)mqpollhandle, on_close);
+        r = mq_close(mqdes);
+        mqdes = MQDES_INVALID;
       }
       return r;
     }
