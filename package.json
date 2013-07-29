@@ -1,5 +1,5 @@
 { "name": "pmq",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": "Brian White <mscdex@mscdex.net>",
   "description": "A node.js binding for using POSIX message queues",
   "main": "./lib/index",
