@@ -107,6 +107,15 @@ class PosixMQ : public ObjectWrap {
         doCreate = val->BooleanValue();
       }
 
+      if (!(val = config->Get(String::New("flags")))->IsUndefined()) {
+        if (val->IsUint32())
+            flags = val->Uint32Value();
+        else {
+            return ThrowException(Exception::TypeError(
+                String::New("'flags' property must be an int")));
+        }
+      }
+
       val = config->Get(String::New("name"));
       if (!val->IsString()) {
         return ThrowException(Exception::TypeError(
@@ -264,14 +273,15 @@ class PosixMQ : public ObjectWrap {
       HandleScope scope;
       PosixMQ* obj = ObjectWrap::Unwrap<PosixMQ>(args.This());
       uint32_t priority = 0;
+      int send_result;
       bool ret = true;
 
       if (args.Length() < 1) {
         return ThrowException(Exception::TypeError(
             String::New("Expected at least 1 argument")));
-      } else if (!Buffer::HasInstance(args[0])) {
+      } else if ((!Buffer::HasInstance(args[0])) and (!args[0]->IsString())) {
         return ThrowException(Exception::TypeError(
-            String::New("First argument must be a Buffer")));
+            String::New("First argument must be a Buffer or String")));
       } else if (args.Length() >= 2) {
         if (args[1]->IsUint32() && args[1]->Uint32Value() < 32)
           priority = args[1]->Uint32Value();
@@ -281,8 +291,22 @@ class PosixMQ : public ObjectWrap {
         }
       }
 
-      if (mq_send(obj->mqdes, Buffer::Data(args[0]->ToObject()),
-                  Buffer::Length(args[0]->ToObject()), priority) == -1) {
+      if (Buffer::HasInstance(args[0])) {
+          send_result = mq_send(obj->mqdes, Buffer::Data(args[0]->ToObject()),
+                                Buffer::Length(args[0]->ToObject()), priority);
+      }
+      else if (args[0]->IsString()) {
+          const char* message;
+          String::AsciiValue msgstr(args[0]->ToString());
+          message = (const char*)(*msgstr);
+          send_result = mq_send(obj->mqdes, message, strlen(message), priority);
+      }
+      else {
+        return ThrowException(Exception::TypeError(
+            String::New("First argument wasn't a Buffer or String!")));
+      }
+
+      if (send_result == -1) {
         if (errno != EAGAIN) {
           return ThrowException(Exception::Error(
               String::New(uv_strerror(uv_last_error(uv_default_loop())))));

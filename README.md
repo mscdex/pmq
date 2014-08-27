@@ -103,11 +103,13 @@ Methods
     * maxmsgs - _integer_ - If creating a queue, this is the maximum number of messages the queue can hold. This value is subject to the system limits in place and defaults to 10.
 
     * msgsize - _integer_ - If creating a queue, this is the maximum size of each message (in bytes) in the queue. This value is subject to the system limits in place and defaults to 8192 bytes.
+
+    * flags - _integer_ - Default is `O_RDWR | O_NONBLOCK` (2050). If a different flags value is required, its integer value may be provided here.
     
 * **close**() - _(void)_ - Disconnects from the queue.
 
 * **unlink**() - _(void)_ - Removes the queue from the system.
 
-* **push**(< _Buffer_ >data[, < _integer_ >priority]) - _boolean_ - Pushes a message with the contents of `data` onto the queue with the optional `priority` (defaults to 0). `priority` is an integer between 0 and 31 inclusive.
+* **push**(< _Buffer_ or _string_ >data[, < _integer_ >priority]) - _boolean_ - Pushes a message with the contents of `data` onto the queue with the optional `priority` (defaults to 0). `data` is either a string or Buffer object. `priority` is an integer between 0 and 31 inclusive.
 
 * **shift**(< _Buffer_ >readbuf[, < _boolean_ >returnTuple]) - _mixed_ - Shifts the next message off the queue and stores it in `readbuf`. If `returnTuple` is set to true, an array containing the number of bytes in the shifted message and the message's priority are returned, otherwise just the number of bytes is returned (default). If there was nothing on the queue, false is returned.
