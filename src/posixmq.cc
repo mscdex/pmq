@@ -107,6 +107,13 @@ class PosixMQ : public ObjectWrap {
         doCreate = val->BooleanValue();
       }
 
+      if (!(val = config->Get(String::New("flags")))->IsUndefined()) {
+        if (val == String::New("read_only"))
+            flags = O_RDONLY | O_NONBLOCK;
+        else if (val == String::New("write_only"))
+            flags = O_WRONLY | O_NONBLOCK;
+      }
+
       val = config->Get(String::New("name"));
       if (!val->IsString()) {
         return ThrowException(Exception::TypeError(
